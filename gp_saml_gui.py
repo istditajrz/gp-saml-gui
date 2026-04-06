@@ -1,28 +1,6 @@
 #!/usr/bin/env python3
 
-import warnings
-try:
-    import gi
-
-    gi.require_version('Gtk', '3.0')
-    try:
-        gi.require_version('WebKit2', '4.1')
-    except ValueError:  # I wish this were ImportError
-        gi.require_version('WebKit2', '4.0')
-        warnings.warn("Using WebKit2Gtk 4.0 (obsolete); please upgrade to WebKit2Gtk 4.1")
-    from gi.repository import Gtk, WebKit2, GLib
-except ImportError:
-    try:
-        import pgi as gi
-        gi.require_version('Gtk', '3.0')
-        gi.require_version('WebKit2', '4.0')
-        from pgi.repository import Gtk, WebKit2, GLib
-        warnings.warn("Using PGI and WebKit2Gtk 4.0 (both obsolete); please upgrade to PyGObject and WebKit2Gtk 4.1")
-    except ImportError:
-        gi = None
-if gi is None:
-    raise ImportError("Either gi (PyGObject) or pgi (obsolete) module is required.")
-
+import webview
 import argparse
 import urllib3
 import requests
@@ -54,8 +32,7 @@ COOKIE_FIELDS = ('prelogin-cookie', 'portal-userauthcookie')
 class SAMLLoginView:
     def __init__(self, uri, html, args):
 
-        Gtk.init(None)
-        self.window = window = Gtk.Window()
+        self.window = window = webview.create_window('gp-saml-gui', uri)
 
         # API reference: https://lazka.github.io/pgi-docs/#WebKit2-4.0
 
@@ -64,47 +41,47 @@ class SAMLLoginView:
         self.saml_result = {}
         self.verbose = args.verbose
 
-        self.ctx = WebKit2.WebContext.get_default()
-        if not args.verify:
-            self.ctx.set_tls_errors_policy(WebKit2.TLSErrorsPolicy.IGNORE)
-        self.cookies = self.ctx.get_cookie_manager()
-        if args.cookies:
-            self.cookies.set_accept_policy(WebKit2.CookieAcceptPolicy.ALWAYS)
-            self.cookies.set_persistent_storage(args.cookies, WebKit2.CookiePersistentStorage.TEXT)
-        self.wview = WebKit2.WebView()
+        # self.ctx = WebKit2.WebContext.get_default()
+        # if not args.verify:
+        #     self.ctx.set_tls_errors_policy(WebKit2.TLSErrorsPolicy.IGNORE)
+        # self.cookies = self.ctx.get_cookie_manager()
+        # if args.cookies:
+        #     self.cookies.set_accept_policy(WebKit2.CookieAcceptPolicy.ALWAYS)
+        #     self.cookies.set_persistent_storage(args.cookies, WebKit2.CookiePersistentStorage.TEXT)
+        # self.wview = WebKit2.WebView()
 
-        if args.no_proxy:
-            data_manager = self.ctx.get_website_data_manager()
-            data_manager.set_network_proxy_settings(WebKit2.NetworkProxyMode.NO_PROXY, None)
+        # if args.no_proxy:
+        #     data_manager = self.ctx.get_website_data_manager()
+        #     data_manager.set_network_proxy_settings(WebKit2.NetworkProxyMode.NO_PROXY, None)
 
-        if args.user_agent is None:
-            args.user_agent = 'PAN GlobalProtect'
-        settings = self.wview.get_settings()
-        settings.set_user_agent(args.user_agent)
-        self.wview.set_settings(settings)
+        # if args.user_agent is None:
+        #     args.user_agent = 'PAN GlobalProtect'
+        # settings = self.wview.get_settings()
+        # settings.set_user_agent(args.user_agent)
+        # self.wview.set_settings(settings)
 
-        window.resize(500, 500)
-        window.add(self.wview)
-        window.show_all()
-        window.set_title("SAML Login")
-        window.connect('delete-event', self.close)
-        self.wview.connect('load-changed', self.on_load_changed)
-        self.wview.connect('resource-load-started', self.log_resources)
+        # window.resize(500, 500)
+        # window.add(self.wview)
+        # window.show_all()
+        # window.set_title("SAML Login")
+        # window.connect('delete-event', self.close)
+        # self.wview.connect('load-changed', self.on_load_changed)
+        # self.wview.connect('resource-load-started', self.log_resources)
 
-        if html:
-            self.wview.load_html(html, uri)
-        else:
-            self.wview.load_uri(uri)
+        # if html:
+        #     self.wview.load_html(html, uri)
+        # else:
+        #     self.wview.load_uri(uri)
 
-    def close(self, window, event):
-        self.closed = True
-        Gtk.main_quit()
-
-    def log_resources(self, webview, resource, request):
-        if self.verbose > 1:
-            print('[REQUEST] %s for resource %s' % (request.get_http_method() or 'Request', resource.get_uri()), file=stderr)
-        if self.verbose > 2:
-            resource.connect('finished', self.log_resource_details, request)
+#    def close(self, window, event):
+#        self.closed = True
+#        Gtk.main_quit()
+#
+#    def log_resources(self, webview, resource, request):
+#        if self.verbose > 1:
+#            print('[REQUEST] %s for resource %s' % (request.get_http_method() or 'Request', resource.get_uri()), file=stderr)
+#        if self.verbose > 2:
+#            resource.connect('finished', self.log_resource_details, request)
 
     def log_resource_details(self, resource, request):
         m = request.get_http_method() or 'Request'
@@ -393,7 +370,7 @@ def main(args = None):
     if args.verbose:
         print("Got SAML %s, opening browser..." % sam, file=stderr)
     slv = SAMLLoginView(uri, html, args)
-    Gtk.main()
+    # Gtk.main()
     if slv.closed:
         print("Login window closed by user.", file=stderr)
         p.exit(1)
